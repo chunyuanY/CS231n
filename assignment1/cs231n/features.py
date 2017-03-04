@@ -1,3 +1,4 @@
+#coding:utf8
 import matplotlib
 import numpy as np
 from scipy.ndimage import uniform_filter
@@ -89,34 +90,40 @@ def hog_feature(im):
     image = rgb2gray(im)
   else:
     image = np.at_least_2d(im)
+  sx, sy = image.shape # 图形大小  32x32像素
+  orientations = 9 # 梯度直方图bin的数量
+  cx, cy = (8, 8) # 每个cell包含的像素
 
-  sx, sy = image.shape # image size
-  orientations = 9 # number of gradient bins
-  cx, cy = (8, 8) # pixels per cell
+  gx = np.zeros(image.shape) # 32x32
+  gy = np.zeros(image.shape) # 32x32
+  gx[:, :-1] = np.diff(image, n=1, axis=1) # 计算x轴方向梯度  gx[:,:-1]表示不包括gx最后一列，即gx[:,-1]不变，仍然全是0
+  gy[:-1, :] = np.diff(image, n=1, axis=0) # 计算y轴方向梯度
+  
+  grad_mag = np.sqrt(gx ** 2 + gy ** 2) # 梯度大小  32x32
+  grad_ori = np.arctan2(gy, (gx + 1e-15)) * (180 / np.pi) + 90 # 梯度方向  32x32
 
-  gx = np.zeros(image.shape)
-  gy = np.zeros(image.shape)
-  gx[:, :-1] = np.diff(image, n=1, axis=1) # compute gradient on x-direction
-  gy[:-1, :] = np.diff(image, n=1, axis=0) # compute gradient on y-direction
-  grad_mag = np.sqrt(gx ** 2 + gy ** 2) # gradient magnitude
-  grad_ori = np.arctan2(gy, (gx + 1e-15)) * (180 / np.pi) + 90 # gradient orientation
+  n_cellsx = int(np.floor(sx / cx))  # x轴方向cell的数量 4
+  n_cellsy = int(np.floor(sy / cy))  # y轴方向cell的数量 4
 
-  n_cellsx = int(np.floor(sx / cx))  # number of cells in x
-  n_cellsy = int(np.floor(sy / cy))  # number of cells in y
-  # compute orientations integral images
-  orientation_histogram = np.zeros((n_cellsx, n_cellsy, orientations))
+  # 计算完整图形的方向
+  orientation_histogram = np.zeros((n_cellsx, n_cellsy, orientations)) # 4x4x9
   for i in range(orientations):
-    # create new integral image for this orientation
-    # isolate orientations in this range
+    # np.where相当于C语言中的三目运算符  grad_ori <（180/orientations*(i + 1)) ? grad_ori : 0
+    #当i=0时，意味着grad_ori中<0 或>20的元素 对应于temp_ori的是0。意味着只保留 0<=grad_ori<20的元素。
+    #直观上，就是0<=grad_ori<20的像素点有投票权。
     temp_ori = np.where(grad_ori < 180 / orientations * (i + 1),
-                        grad_ori, 0)
+                        grad_ori, 0)  # 32x32
     temp_ori = np.where(grad_ori >= 180 / orientations * i,
                         temp_ori, 0)
-    # select magnitudes for those orientations
+    
+    # 选择那些方向的大小
     cond2 = temp_ori > 0
+    # temp_ori > 0 ? grad_mag : 0
+    # 用梯度的大小作为投票的权重
     temp_mag = np.where(cond2, grad_mag, 0)
-    orientation_histogram[:,:,i] = uniform_filter(temp_mag, size=(cx, cy))[cx/2::cx, cy/2::cy].T
-  
+    #均匀滤波器
+    local_mean = uniform_filter(temp_mag, size=(cx, cy))
+    orientation_histogram[:,:,i] = local_mean[cx/2::cx, cy/2::cy].T
   return orientation_histogram.ravel()
 
 
