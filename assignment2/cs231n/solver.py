@@ -1,3 +1,4 @@
+#coding:utf8
 import numpy as np
 
 from cs231n import optim
@@ -31,7 +32,7 @@ class Solver(object):
     'X_train': # training data
     'y_train': # training labels
     'X_val': # validation data
-    'X_train': # validation labels
+    'y_val': # validation labels
   }
   model = MyAwesomeModel(hidden_size=100, reg=10)
   solver = Solver(model, data,
@@ -107,7 +108,7 @@ class Solver(object):
     self.y_val = data['y_val']
     
     # Unpack keyword arguments
-    self.update_rule = kwargs.pop('update_rule', 'sgd')
+    self.update_rule = kwargs.pop('update_rule', 'sgd')  # 如果'update_rule'存在，就返回kwargs['update_rule'];否则，返回'sgd'
     self.optim_config = kwargs.pop('optim_config', {})
     self.lr_decay = kwargs.pop('lr_decay', 1.0)
     self.batch_size = kwargs.pop('batch_size', 100)
@@ -123,8 +124,11 @@ class Solver(object):
 
     # Make sure the update rule exists, then replace the string
     # name with the actual function
+    # optim refers optim.py, if optim.py don't contains self.update_rule function, raise a error
     if not hasattr(optim, self.update_rule):
       raise ValueError('Invalid update_rule "%s"' % self.update_rule)
+    
+    #根据不同的更新规则，返回不同的函数地址。
     self.update_rule = getattr(optim, self.update_rule)
 
     self._reset()
@@ -165,8 +169,9 @@ class Solver(object):
     loss, grads = self.model.loss(X_batch, y_batch)
     self.loss_history.append(loss)
 
-    # Perform a parameter update
-    for p, w in self.model.params.iteritems():
+    # 各个参数更新
+    # self.model.params： W , b , gamma , beta (used for batch normalization)
+    for p, w in self.model.params.iteritems(): # p: key,  v: value
       dw = grads[p]
       config = self.optim_configs[p]
       next_w, next_config = self.update_rule(w, dw, config)
@@ -244,8 +249,7 @@ class Solver(object):
       first_it = (t == 0)
       last_it = (t == num_iterations + 1)
       if first_it or last_it or epoch_end:
-        train_acc = self.check_accuracy(self.X_train, self.y_train,
-                                        num_samples=1000)
+        train_acc = self.check_accuracy(self.X_train, self.y_train, num_samples=1000)
         val_acc = self.check_accuracy(self.X_val, self.y_val)
         self.train_acc_history.append(train_acc)
         self.val_acc_history.append(val_acc)

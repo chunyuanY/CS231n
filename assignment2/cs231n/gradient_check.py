@@ -1,3 +1,4 @@
+#coding:utf8
 import numpy as np
 from random import randrange
 
@@ -13,9 +14,8 @@ def eval_numerical_gradient(f, x, verbose=True, h=0.00001):
   # iterate over all indexes in x
   it = np.nditer(x, flags=['multi_index'], op_flags=['readwrite'])
   while not it.finished:
-
     # evaluate function at x+h
-    ix = it.multi_index
+    ix = it.multi_index  #每次只对x中的一个元素做增量
     oldval = x[ix]
     x[ix] = oldval + h # increment by h
     fxph = f(x) # evalute f(x + h)
