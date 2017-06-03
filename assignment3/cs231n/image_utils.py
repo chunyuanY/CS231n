@@ -1,7 +1,7 @@
 from __future__ import print_function
-from future import standard_library
-standard_library.install_aliases()
-from builtins import range
+#from future import standard_library
+#standard_library.install_aliases()
+#from builtins import range
 import urllib.request, urllib.error, urllib.parse, os, tempfile
 
 import numpy as np
@@ -44,6 +44,28 @@ def preprocess_image(img):
     return (img.astype(np.float32)/255.0 - SQUEEZENET_MEAN) / SQUEEZENET_STD
 
 
+def preprocess_image(img, mean_img, mean='image'):
+  """
+  Convert to float, transepose, and subtract mean pixel
+  
+  Input:
+  - img: (H, W, 3)
+  
+  Returns:
+  - (1, 3, H, 3)
+  """
+  if mean == 'image':
+    mean = mean_img
+  elif mean == 'pixel':
+    mean = mean_img.mean(axis=(1, 2), keepdims=True)
+  elif mean == 'none':
+    mean = 0
+  else:
+    raise ValueError('mean must be image or pixel or none')
+  return img.astype(np.float32).transpose(2, 0, 1)[None] - mean
+
+
+
 def deprocess_image(img, rescale=False):
     """Undo preprocessing on an image and convert back to uint8."""
     img = (img * SQUEEZENET_STD + SQUEEZENET_MEAN)
@@ -51,6 +73,34 @@ def deprocess_image(img, rescale=False):
         vmin, vmax = img.min(), img.max()
         img = (img - vmin) / (vmax - vmin)
     return np.clip(255 * img, 0.0, 255.0).astype(np.uint8)
+
+
+def deprocess_image(img, mean_img, mean='image', renorm=False):
+  """
+  Add mean pixel, transpose, and convert to uint8
+  
+  Input:
+  - (1, 3, H, W) or (3, H, W)
+  
+  Returns:
+  - (H, W, 3)
+  """
+  if mean == 'image':
+    mean = mean_img
+  elif mean == 'pixel':
+    mean = mean_img.mean(axis=(1, 2), keepdims=True)
+  elif mean == 'none':
+    mean = 0
+  else:
+    raise ValueError('mean must be image or pixel or none')
+  if img.ndim == 3:
+    img = img[None]
+  img = (img + mean)[0].transpose(1, 2, 0)
+  if renorm:
+    low, high = img.min(), img.max()
+    img = 255.0 * (img - low) / (high - low)
+  return img.astype(np.uint8)
+
 
 
 def image_from_url(url):

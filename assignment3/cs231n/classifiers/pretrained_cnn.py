@@ -8,6 +8,9 @@ from cs231n.layer_utils import *
 
 class PretrainedCNN(object):
   def __init__(self, dtype=np.float32, num_classes=100, input_size=64, h5_file=None):
+    '''
+    The structure of network is [conv-bn-relu]*9 - [affine-bn-rule]*1 - affine
+    '''
     self.dtype = dtype
     self.conv_params = []
     self.input_size = input_size
@@ -54,7 +57,7 @@ class PretrainedCNN(object):
     self.params['W%d' % (i + 3)] = np.sqrt(2.0 / hidden_dim) * np.random.randn(hidden_dim, num_classes)
     self.params['b%d' % (i + 3)] = np.zeros(num_classes)
     
-    for k, v in self.params.iteritems():
+    for k, v in self.params.items():
       self.params[k] = v.astype(dtype)
 
     if h5_file is not None:
@@ -77,28 +80,32 @@ class PretrainedCNN(object):
     loss, grads = self.loss(x, y)
 
     with h5py.File(h5_file, 'r') as f:
-      for k, v in f.iteritems():
+      for k, v in f.items():
         v = np.asarray(v)
         if k in self.params:
-          if verbose: print k, v.shape, self.params[k].shape
+          if verbose: 
+            print(k, v.shape, self.params[k].shape)
           if v.shape == self.params[k].shape:
             self.params[k] = v.copy()
           elif v.T.shape == self.params[k].shape:
             self.params[k] = v.T.copy()
           else:
             raise ValueError('shapes for %s do not match' % k)
+        
         if k.startswith('running_mean'):
           i = int(k[12:]) - 1
           assert self.bn_params[i]['running_mean'].shape == v.shape
           self.bn_params[i]['running_mean'] = v.copy()
-          if verbose: print k, v.shape
+          if verbose: 
+             print(k, v.shape)
         if k.startswith('running_var'):
           i = int(k[11:]) - 1
           assert v.shape == self.bn_params[i]['running_var'].shape
           self.bn_params[i]['running_var'] = v.copy()
-          if verbose: print k, v.shape
+          if verbose:
+             print(k, v.shape)
         
-    for k, v in self.params.iteritems():
+    for k, v in self.params.items():
       self.params[k] = v.astype(self.dtype)
 
   
@@ -111,6 +118,8 @@ class PretrainedCNN(object):
     output from the ending layer and a cache object that can be used to run
     the model backward over the same set of layers.
 
+    The structure of network is [conv-bn-relu]*9 - [affine-bn-rule]*1 - affine
+    
     For the purposes of this function, a "layer" is one of the following blocks:
 
     [conv - spatial batchnorm - relu] (There are 9 of these)
@@ -138,7 +147,7 @@ class PretrainedCNN(object):
     layer_caches = []
 
     prev_a = X
-    for i in xrange(start, end + 1):
+    for i in range(start, end + 1):
       i1 = i + 1
       if 0 <= i < len(self.conv_params):
         # This is a conv layer
@@ -147,7 +156,6 @@ class PretrainedCNN(object):
         conv_param = self.conv_params[i]
         bn_param = self.bn_params[i]
         bn_param['mode'] = mode
-
         next_a, cache = conv_bn_relu_forward(prev_a, w, b, gamma, beta, conv_param, bn_param)
       elif i == len(self.conv_params):
         # This is the fully-connected hidden layer

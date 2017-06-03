@@ -85,14 +85,16 @@ class ConvNet(object):
     W_new = input_dim[2]
     conv_size = len(conv_dims)
     channel_size = 3
-    for i in xrange(conv_size): #注意：这里索引值从0开始
+    for i in range(conv_size): #注意：这里索引值从0开始
         #初始化卷积层的W 和 b
         num_filters = conv_dims[i][0]
         filter_size = conv_dims[i][1]
         
          # 初始化conv layer的配置信息
         if pad == -1:
-            pad = (filter_size - 1) / 2
+            assert (filter_size - 1) % 2 == 0, "filter size is not good!"
+            pad = int( (filter_size - 1) / 2 )
+        
         self.conv_params.append( {'stride': conv_stride , 'pad': pad} )
         self.pool_params.append( {'pool_height': pool_height , 'pool_width': pool_width, 'stride': pool_stride} )
         
@@ -107,22 +109,26 @@ class ConvNet(object):
             self.params['beta'+str(i)] = np.zeros(channel_size)
         
         # 每一次conv-relu-pool 之后，H和W都发生变化。
-        H_new = ((H_new + 2*pad -filter_size)/conv_stride + 1) / pool_height
-        W_new = ((W_new + 2*pad -filter_size)/conv_stride + 1) / pool_width
+        assert (H_new + 2*pad -filter_size) % conv_stride == 0, "convolution stride is not good!"
+        assert (W_new + 2*pad -filter_size) % conv_stride == 0, "convolution stride is not good!"
+        assert ((H_new + 2*pad -filter_size)/conv_stride + 1) % pool_height == 0, "pool height is not good!"
+        assert ((W_new + 2*pad -filter_size)/conv_stride + 1) % pool_width == 0, "pool width is not good!"
+        H_new = int( ((H_new + 2*pad -filter_size)/conv_stride + 1) / pool_height )
+        W_new = int( ((W_new + 2*pad -filter_size)/conv_stride + 1) / pool_width )
     
     
     # 计算全连接层输入层的向量的size
     fc_input_dim = channel_size * H_new * W_new
     #初始化全连接层的W
-    self.params['W'+str(conv_size)] = np.random.randn(fc_input_dim, hidden_dims[0]) \
-                                      * np.sqrt(2.0/fc_input_dim)
+    self.params['W'+str(conv_size)] = np.random.randn(fc_input_dim, hidden_dims[0]) * np.sqrt(2.0/fc_input_dim)
     self.params['b'+str(conv_size)] = np.zeros(hidden_dims[0])
+    
     # 初始化全连接层batch normalization的参数
     if self.use_batchnorm_in_fc:
         self.params['gamma'+str(conv_size)] = np.ones(hidden_dims[0])
         self.params['beta'+str(conv_size)] = np.zeros(hidden_dims[0])
     
-    for i in xrange(conv_size+1, conv_size + len(hidden_dims)):
+    for i in range(conv_size+1, conv_size + len(hidden_dims)):
         idx = i - conv_size - 1  # idx起始值是0
         
         # 初始化fully-connected layer的W和b
@@ -146,12 +152,12 @@ class ConvNet(object):
     #                             END OF YOUR CODE                             #
     ############################################################################
     # 初始化batch normal的配置信息
-    self.bn_params = [{} for _ in xrange(self.conv_layers + self.hidden_layers)]
+    self.bn_params = [{} for _ in range(self.conv_layers + self.hidden_layers)]
     if self.use_batchnorm_in_conv:
-        for i in xrange(self.conv_layers):
+        for i in range(self.conv_layers):
           self.bn_params[i] = {'mode': 'train'}
     if self.use_batchnorm_in_fc:
-        for j in xrange(self.conv_layers, self.conv_layers+self.hidden_layers):
+        for j in range(self.conv_layers, self.conv_layers+self.hidden_layers):
           self.bn_params[j] = {'mode': 'train'}
     
     # 初始化dropout的配置信息
@@ -162,7 +168,7 @@ class ConvNet(object):
         self.dropout_param['seed'] = seed
     
     
-    for k, v in self.params.iteritems():
+    for k, v in self.params.items():
       self.params[k] = v.astype(dtype)
      
  
@@ -197,7 +203,7 @@ class ConvNet(object):
     out = X
     
     # [conv-bn?-relu-pool]xN 前向传播
-    for i in xrange(self.conv_layers):
+    for i in range(self.conv_layers):
         W, b = self.params['W'+str(i)], self.params['b'+str(i)]
         if self.use_batchnorm_in_conv:
             out, cache = conv_bn_relu_pool_forward(out, W, b, 
@@ -215,7 +221,7 @@ class ConvNet(object):
     
    
     # [affine-bn?-relu-dropout?]xM -affine 前向传播
-    for j in xrange(self.conv_layers, self.conv_layers + self.hidden_layers):
+    for j in range(self.conv_layers, self.conv_layers + self.hidden_layers):
         W,b = self.params['W'+str(j)], self.params['b'+str(j)]
         
         if self.use_dropout and self.use_batchnorm_in_fc:
@@ -269,7 +275,7 @@ class ConvNet(object):
     grads['W'+str(last_idx)] += self.reg * self.params['W'+str(last_idx)]
         
     # [affine-relu]xM 反向传播
-    for j in xrange(self.conv_layers + self.hidden_layers-1 , self.conv_layers-1 , -1):
+    for j in range(self.conv_layers + self.hidden_layers-1 , self.conv_layers-1 , -1):
         if self.use_dropout and self.use_batchnorm_in_fc:
             dout, grads['W'+str(j)], grads['b'+str(j)],\
                   grads['gamma'+str(j)], grads['beta'+str(j)] =\
@@ -284,7 +290,7 @@ class ConvNet(object):
         grads['W'+str(j)] += self.reg * self.params['W'+str(j)]
     
     # [conv-relu-pool]xN 反向传播
-    for i in xrange(self.conv_layers-1 , -1 , -1):
+    for i in range(self.conv_layers-1 , -1 , -1):
         if self.use_batchnorm_in_conv:
             dout, grads['W'+str(i)], grads['b'+str(i)],\
                   grads['gamma'+str(i)], grads['beta'+str(i)] =\
